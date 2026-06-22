@@ -1,8 +1,8 @@
-"""base_inicial_limpia
+"""initial_migration_with_price
 
-Revision ID: cf46845363c2
+Revision ID: 4604663eafc1
 Revises: 
-Create Date: 2026-06-20 13:18:44.934759
+Create Date: 2026-06-21 17:05:08.325570
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'cf46845363c2'
+revision: str = '4604663eafc1'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -57,6 +57,7 @@ def upgrade() -> None:
     sa.Column('total_stock', sa.Numeric(precision=10, scale=2), nullable=False),
     sa.Column('unit_of_measure', sa.String(length=20), nullable=False),
     sa.Column('is_consumable', sa.Boolean(), nullable=False),
+    sa.Column('price_per_unit', sa.Numeric(precision=10, scale=2), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )

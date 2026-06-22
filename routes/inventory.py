@@ -14,45 +14,21 @@ def bulk_upload_inventory_ia():
     user_prompt = data.get('prompt')
     
     if not user_prompt:
-        return jsonify({"error": "No se ingresó ninguna instrucción para procesar."}), 400
+        return jsonify({"error": "No se ingresó ninguna instrucción para procesar, varón."}), 400
         
-    # Invocar al servicio extractor de IA
+    # Invocar al servicio extractor de IA (Solo parsea el texto a JSON)
     resultado_ia = procesar_extraccion_inventario_ia(user_prompt)
     
     if not resultado_ia["success"]:
         return jsonify({"error": resultado_ia["error"]}), 422
         
-    items_creados = []
-    items_ignorados = []
-    
-    # Iterar e inyectar en la base de datos de manera segura
-    for item_data in resultado_ia["items"]:
-        # Evitar colisión de nombres duplicados
-        existente = InventoryItem.query.filter_by(name=item_data['name']).first()
-        if existente:
-            items_ignorados.append(item_data['name'])
-            continue
-            
-        nuevo_item = InventoryItem(
-            name=item_data['name'],
-            category=item_data['category'],
-            total_stock=item_data['total_stock'],
-            unit_of_measure=item_data['unit_of_measure'],
-            is_consumable=item_data['is_consumable']
-        )
-        db.session.add(nuevo_item)
-        items_creados.append(item_data['name'])
-        
-    if items_creados:
-        db.session.commit()
-        
+    # Retornamos los objetos puros extraídos por la IA directamente al Front
+    # ¡Cero base de datos por aquí! Así evitamos que se metan cosas sin revisar.
     return jsonify({
-        "message": f"Procesamiento logístico completado. Se crearon {len(items_creados)} artículos.",
-        "added_items": items_creados,
-        "skipped_items": items_ignorados,
-        "ai_summary": resultado_ia["summary"]
-    }), 201
-
+        "message": "Texto procesado por el motor logístico.",
+        "ai_summary": resultado_ia["summary"],
+        "raw_extracted": resultado_ia["items"] # Aquí va la lista de diccionarios limpios
+    }), 200
 @inventory_bp.route('/api/inventory', methods=['GET'])
 def get_inventory():
     query = InventoryItem.query
@@ -75,6 +51,7 @@ def get_inventory():
         "name": i.name,
         "category": i.category,
         "total_stock": float(i.total_stock),
+        "price_per_unit": float(i.price_per_unit), # NUEVO CAMPO
         "unit_of_measure": i.unit_of_measure,
         "is_consumable": i.is_consumable
     } for i in items]
@@ -96,6 +73,7 @@ def get_inventory_item(item_id):
         "name": item.name,
         "category": item.category,
         "total_stock": float(item.total_stock),
+        "price_per_unit": float(item.price_per_unit), # NUEVO CAMPO
         "unit_of_measure": item.unit_of_measure,
         "is_consumable": item.is_consumable
     }), 200
@@ -119,7 +97,8 @@ def create_inventory_item():
         category=data.get('category'),
         total_stock=data['total_stock'],
         unit_of_measure=data.get('unit_of_measure', 'N/A'),
-        is_consumable=data.get('is_consumable', False)
+        is_consumable=data.get('is_consumable', False),
+        price_per_unit=data.get('price_per_unit', 0.00) # NUEVO CAMPO
     )
     
     db.session.add(nuevo_item)
@@ -150,6 +129,7 @@ def update_inventory_item(item_id):
     if 'total_stock' in data: item.total_stock = data['total_stock']
     if 'unit_of_measure' in data: item.unit_of_measure = data['unit_of_measure']
     if 'is_consumable' in data: item.is_consumable = data['is_consumable']
+    if 'price_per_unit' in data: item.price_per_unit = data['price_per_unit'] # NUEVO CAMPO
 
     db.session.commit()
     return jsonify({"message": "Insumo de inventario actualizado correctamente."}), 200
@@ -169,7 +149,6 @@ def delete_inventory_item(item_id):
         db.session.commit()
         return jsonify({"message": f"Artículo '{item.name}' removido de la bodega con éxito."}), 200
     except Exception as e:
-        # Esto previene caídas si el ítem está amarrado por clave foránea a una orden de un evento
         db.session.rollback()
         return jsonify({
             "error": "No se puede eliminar el artículo porque está asignado a eventos activos. Desvincúlalo primero, varón."
