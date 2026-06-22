@@ -20,6 +20,7 @@ tavily-python
 duckduckgo-search
 ddgs
 dotenv
+psycopg2-binary
 requests
 yagmail
 #

@@ -4,11 +4,23 @@ from database import db
 import models 
 from flask_cors import CORS
 from routes import genres, songs, authors, files, inventory, events, chatbot
+
 app = Flask(__name__)
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "database.db")}'
+# --- CAMBIO AQUÍ: Configuración para Supabase ---
+# Intenta leer desde el entorno, si no existe, usa la URL de Supabase directa
+SUPABASE_URL = os.getenv(
+    'DATABASE_URL', 
+    
+)
+
+# Garantiza que use postgresql:// requerido por SQLAlchemy moderno
+if SUPABASE_URL.startswith("postgres://"):
+    SUPABASE_URL = SUPABASE_URL.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = SUPABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# -----------------------------------------------
 
 db.init_app(app)
 
@@ -20,7 +32,7 @@ app.register_blueprint(genres.genres_bp)
 app.register_blueprint(authors.authors_bp)
 app.register_blueprint(events.event_bp)
 CORS(app)
-# -> BUENA PRÁCTICA: Asegura la limpieza de conexiones
+
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db.session.remove()
