@@ -1,4 +1,3 @@
-# routes/routes_event.py
 import threading
 from flask import Blueprint, request, jsonify
 from datetime import datetime
@@ -23,7 +22,6 @@ def assistant_chat():
         return jsonify({"error": "No enviaste ningún mensaje, varón."}), 400
         
     try:
-        # ELIMINADO EL INYECTOR DE NOTAS DE AFORO. 
         # Pasamos el user_input tal y como el usuario lo escribió para forzar literalidad.
         result = assistant_service.process_prompt(user_input)
         
@@ -35,6 +33,8 @@ def assistant_chat():
     except Exception as e:
         print(f"Error crítico en el asistente de eventos: {str(e)}")
         return jsonify({"error": "Fallo interno al procesar el dictado por IA."}), 500
+
+
 # ==========================================
 # POST - CREAR EVENTO CON VALIDACIÓN DE STOCK REAL
 # ==========================================
@@ -52,7 +52,6 @@ def create_event():
     except ValueError:
         return jsonify({"error": "Formatos inválidos. Use YYYY-MM-DD para date y HH:MM para time."}), 400
 
-    # 1. Instanciar la cabecera del Evento incluyendo datos históricos informativos
     nuevo_evento = Event(
         name=data['name'],
         date=fecha_obj,
@@ -63,7 +62,6 @@ def create_event():
         itinerary=data.get('itinerary', [])
     )
 
-    # 2. Procesar Staff
     staff_list = data.get('staff', [])
     emails_a_notificar = []
     for member in staff_list:
@@ -72,15 +70,14 @@ def create_event():
             nuevo_evento.staff.append(EventStaff(email=email_limpio, role=member['role']))
             emails_a_notificar.append(email_limpio)
 
-    # 3. Procesar e Inyectar inventario FISCO real disponible
     inventory_requests = data.get('inventory', [])
     items_hidratados_para_mail = [] 
     
     for req in inventory_requests:
         item_id = req.get('item_id')
-        qty_requested = req.get('quantity', 1.0)
+        qty_requested = req.get('quantity_used', req.get('quantity', 1.0)) # Soporta ambas keys por si acaso
         
-        if not item_id: # Ignoramos proyecciones puras de la IA que el usuario no consolidó
+        if not item_id:
             continue
             
         item = InventoryItem.query.get(item_id)
@@ -104,7 +101,6 @@ def create_event():
         db.session.add(nuevo_evento)
         db.session.commit() 
 
-        # Correo en segundo plano
         lista_final_correos = list(set(emails_a_notificar))
         if lista_final_correos:
             payload_mail = {
@@ -159,7 +155,89 @@ def get_events():
                 "item_id": inv.item_id,
                 "name": inv.item.name,
                 "quantity_used": float(inv.quantity_used),
-                "unit": inv.item.unit_of_measure
+                "unit": inv.item.unit_of_measure,
+                "category": inv.item.category
             } for inv in e.inventory_assignments]
         })
     return jsonify(payload), 200
+
+
+# ==========================================
+# GET - DETALLE DE UN EVENTO ESPECÍFICO (EL QUE FALTABA)
+# ==========================================
+@event_bp.route('/api/events/<int:event_id>', methods=['GET'])
+def get_event_detail(event_id):
+    e = Event.query.get(event_id)
+    if not e:
+        return jsonify({"error": "El evento solicitado no existe, varón."}), 404
+        
+    payload = {
+        "id": e.id,
+        "name": e.name,
+        "date": e.date.isoformat(),
+        "time": e.time.strftime('%H:%M:%S'),
+        "target_audience": e.target_audience,
+        "guests_count": e.guests_count,
+        "estimated_logistic_budget": float(e.estimated_logistic_budget or 0),
+        "itinerary": e.itinerary,
+        "staff": [{"email": s.email, "role": s.role} for s in e.staff],
+        "inventory": [{
+            "item_id": inv.item_id,
+            "name": inv.item.name,
+            "quantity_used": float(inv.quantity_used),
+            "unit": inv.item.unit_of_measure,
+            "category": inv.item.category
+        } for inv in e.inventory_assignments]
+    }
+    return jsonify(payload), 200
+
+
+# ==========================================
+# PUT - ACTUALIZAR EVENTO EXISITENTE
+# ==========================================
+@event_bp.route('/api/events/<int:event_id>', methods=['PUT'])
+def update_event(event_id):
+    e = Event.query.get(event_id)
+    if not e:
+        return jsonify({"error": "El evento a editar no existe."}), 404
+        
+    data = request.get_json() or {}
+    
+    try:
+        if 'date' in data:
+            e.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        if 'time' in data:
+            e.time = datetime.strptime(data['time'], '%H:%M').time()
+    except ValueError:
+        return jsonify({"error": "Formatos de tiempo/fecha erróneos."}), 400
+
+    if 'name' in data: e.name = data['name']
+    if 'target_audience' in data: e.target_audience = data['target_audience']
+    if 'guests_count' in data: e.guests_count = data['guests_count']
+    if 'estimated_logistic_budget' in data: e.estimated_logistic_budget = data['estimated_logistic_budget']
+    if 'itinerary' in data: e.itinerary = data['itinerary']
+
+    # Re-mapear personal
+    if 'staff' in data:
+        EventStaff.query.filter_by(event_id=e.id).delete()
+        for member in data['staff']:
+            if 'email' in member and 'role' in member:
+                e.staff.append(EventStaff(email=member['email'].strip(), role=member['role']))
+
+    # Re-mapear inventario físico con validación
+    if 'inventory' in data:
+        EventInventory.query.filter_by(event_id=e.id).delete()
+        for req in data['inventory']:
+            item_id = req.get('item_id')
+            qty_requested = req.get('quantity_used', req.get('quantity', 1.0))
+            if item_id:
+                item = InventoryItem.query.get(item_id)
+                if item and qty_requested <= item.total_stock:
+                    e.inventory_assignments.append(EventInventory(item_id=item_id, quantity_used=qty_requested))
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Evento actualizado correctamente, varón."}), 200
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({"error": f"Error al actualizar la base de datos: {str(err)}"}), 500
