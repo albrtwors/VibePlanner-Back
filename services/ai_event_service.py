@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ==========================================
-# 1. ESQUEMAS DE EXTRACCIÓN (PYDANTIC)
+# 1. ESQUEMAS DE EXTRACCIÓN LIMPIONES (PYDANTIC)
 # ==========================================
 class ExtractedItinerary(BaseModel):
     name: str = Field(description="Nombre estricto de la actividad o canción. No mezclar con presupuestos.")
@@ -23,36 +23,34 @@ class ExtractedStaff(BaseModel):
 
 class ExtractedInventory(BaseModel):
     item_name: str = Field(description="Nombre del recurso de inventario o catering solicitado.")
-    quantity: float = Field(default=1.0, description="Cantidad explícita dictada u obtenida basándose en los invitados.")
+    quantity: float = Field(default=1.0, description="Cantidad explícita dictada.")
     price_reference: Optional[float] = Field(default=None, description="Precio unitario referencial si se menciona.")
 
 class AssistantActionPayload(BaseModel):
-    guests_count: Optional[int] = Field(default=None, description="Número de invitados NUEVO si el usuario lo dicta explícitamente. Dejar en None si el usuario habla de otra cosa.")
     itinerary_blocks: List[ExtractedItinerary] = Field(default=[])
     staff_members: List[ExtractedStaff] = Field(default=[])
     inventory_items: List[ExtractedInventory] = Field(default=[])
 
 
 # ==========================================
-# 2. SERVICIO CENTRAL DEL ASISTENTE
+# 2. SERVICIO CENTRAL DEL ASISTENTE (VIBEPLANNER)
 # ==========================================
 class AssistantService:
     def __init__(self):
         self.llm = ChatGroq(
             temperature=0,
-            model_name="openai/gpt-oss-120b", # Asegúrate de que use tu modelo asignado en Groq
+            model_name="openai/gpt-oss-120b",  # Tu modelo asignado en Groq
             groq_api_key=os.getenv("GROQ_API_KEY")
         ).with_structured_output(AssistantActionPayload)
         
-        # Modificado para evitar falsos positivos
+        # PROMPT DEPURADO: Cero menciones a aforos, invitados o cálculos proporcionales
         self.system_prompt = (
             "Eres el asistente logístico de VibePlanner.\n"
             "Tu único trabajo es extraer las entidades que el usuario te pide explícitamente en el mensaje.\n\n"
             "REGLAS CRÍTICAS DE EXTRACCIÓN:\n"
             "1. NO inventes bloques de itinerario, staff o inventario si el usuario no los menciona en su petición.\n"
-            "2. Si el usuario pide agregar un bloque de itinerario o canción (ej: 'Pon Crimen a las 9pm'), extrae UNICAMENTE el bloque de itinerario. Deja la lista de inventario y 'guests_count' vacía.\n"
-            "3. Solo extrae 'guests_count' si el usuario te dicta explícitamente cambiar o setear el aforo en su texto de forma directa (ej: 'Pon el aforo en 150 personas').\n"
-            "4. Si el mensaje contiene una '(Nota del sistema: El usuario ya tiene un aforo real cargado en pantalla de X personas)', utiliza ese número de forma matemática ÚNICAMENTE si te piden calcular catering o comida proporcional a los asistentes (ej: 'calcula 2 refrescos por persona'). No alteres el 'guests_count' de salida a menos que te pidan cambiarlo."
+            "2. Si el usuario pide agregar un bloque de itinerario o canción (ej: 'Pon Crimen a las 9pm'), extrae UNICAMENTE el bloque de itinerario. Deja las demás listas vacías.\n"
+            "3. Extrae los recursos de inventario únicamente si se piden de forma explícita en el texto con sus cantidades reales dictadas."
         )
         
         self.prompt_template = ChatPromptTemplate.from_messages([
@@ -63,24 +61,20 @@ class AssistantService:
 
     def process_prompt(self, user_text: str) -> dict:
         if not user_text.strip():
-            return {"extracted_data": {"itinerary": [], "staff": [], "inventory": [], "budget_projections": [], "guests_count": 0}, "message": "Texto vacío."}
+            return {
+                "extracted_data": {
+                    "itinerary": [], 
+                    "staff": [], 
+                    "inventory": [], 
+                    "budget_projections": []
+                }, 
+                "message": "Texto vacío."
+            }
 
-        # Intentar extraer el valor numérico del aforo previo que inyectamos en la nota del sistema para mantener la persistencia si el LLM devuelve None
-        backup_guests = 0
-        if "El usuario ya tiene un aforo real cargado en pantalla de" in user_text:
-            try:
-                parts = user_text.split("El usuario ya tiene un aforo real cargado en pantalla de ")
-                backup_guests = int(parts[1].split(" personas")[0].strip())
-            except:
-                pass
-
+        # Invocamos la extracción estructurada directa sin intermediarios de conteo
         extracted_data: AssistantActionPayload = self.chain.invoke({"user_input": user_text})
         
-        # Mantenemos el aforo previo si el LLM no extrajo uno nuevo de manera explícita
-        final_guests_count = extracted_data.guests_count if extracted_data.guests_count is not None else backup_guests
-
         response_payload = {
-            "guests_count": final_guests_count,
             "itinerary": [],
             "staff": [],
             "inventory": [],
@@ -95,8 +89,13 @@ class AssistantService:
             validated_name = block.name
             if block.type == "song":
                 song_db = Song.query.filter(Song.name.ilike(f"%{block.name.strip()}%")).first()
-                if song_db: validated_name = song_db.name
-            response_payload["itinerary"].append({"time": block.time or "19:00", "type": block.type, "name": validated_name})
+                if song_db: 
+                    validated_name = song_db.name
+            response_payload["itinerary"].append({
+                "time": block.time or "19:00", 
+                "type": block.type, 
+                "name": validated_name
+            })
 
         # --- Procesar Staff ---
         for member in extracted_data.staff_members:
@@ -129,13 +128,11 @@ class AssistantService:
 
         response_payload["total_estimated_logistic_cost"] = total_budget
 
-        # --- Feedback Dinámico Dinamizado por la Acción del usuario ---
+        # --- Feedback Dinámico sin referencias a invitados ---
         if extracted_data.itinerary_blocks and not extracted_data.inventory_items:
-            feedback = f"¡Entendido, varón! He añadido los bloques solicitados al itinerario del evento."
+            feedback = "¡Entendido, varón! He añadido los bloques solicitados al itinerario del evento."
         elif extracted_data.inventory_items:
-            feedback = f"¡Analizado, varón! Con un aforo de {final_guests_count} personas, el costo proyectado para el inventario es de ${total_budget:.2f} USD."
-        elif extracted_data.guests_count is not None:
-            feedback = f"Aforo actualizado a {final_guests_count} personas con éxito."
+            feedback = f"¡Analizado, varón! El costo proyectado para el inventario es de ${total_budget:.2f} USD."
         else:
             feedback = "Requerimiento procesado correctamente."
 
