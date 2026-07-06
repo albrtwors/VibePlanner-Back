@@ -19,17 +19,12 @@ def assistant_chat():
     data = request.get_json() or {}
     user_input = data.get('message', '')
     
-    # CORREGIDO: Emparejado con 'current_guests_count' que viene del Front
-    frontend_guests_count = data.get('current_guests_count') 
-    
     if not user_input.strip():
         return jsonify({"error": "No enviaste ningún mensaje, varón."}), 400
         
     try:
-        # Concatenamos la nota del sistema de forma clara
-        if frontend_guests_count is not None:
-            user_input += f" (Nota del sistema para el LLM: El usuario ya tiene un aforo real cargado en pantalla de {frontend_guests_count} personas. Usa este número si necesitas calcular cantidades de catering o insumos)."
-
+        # ELIMINADO EL INYECTOR DE NOTAS DE AFORO. 
+        # Pasamos el user_input tal y como el usuario lo escribió para forzar literalidad.
         result = assistant_service.process_prompt(user_input)
         
         return jsonify({
@@ -40,7 +35,6 @@ def assistant_chat():
     except Exception as e:
         print(f"Error crítico en el asistente de eventos: {str(e)}")
         return jsonify({"error": "Fallo interno al procesar el dictado por IA."}), 500
-
 # ==========================================
 # POST - CREAR EVENTO CON VALIDACIÓN DE STOCK REAL
 # ==========================================
