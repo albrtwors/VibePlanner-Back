@@ -1,4 +1,3 @@
-# services/inventory_ai_service.py
 import os
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -25,7 +24,7 @@ class AISingleItemSchema(BaseModel):
     )
     unit_of_measure: str = Field(
         default="uds",
-        description="Debe ser estrictamente una de estas unidades: 'uds', 'metros', 'packs', 'cajas', 'sets'."
+        description="Debe ser estrictamente una de estas unidades admitidas: 'uds', 'unidades', 'piezas', 'metros', 'rollos', 'packs', 'cajas', 'sets', 'litros', 'ml', 'kg', 'gramos'."
     )
     is_consumable: bool = Field(
         default=False,
@@ -53,46 +52,33 @@ class InventoryBulkSchema(BaseModel):
 def procesar_extraccion_inventario_ia(prompt_usuario: str) -> dict:
     llm = ChatGroq(
         api_key=os.getenv("GROQ_API_KEY"),
-        model="openai/gpt-oss-120b", # Cambia al modelo que uses de Groq si es necesario (ej: llama3-70b-8192)
+        model="openai/gpt-oss-120b", 
         temperature=0.0
     )
     
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", (
             "Eres el extractor logístico automatizado de la bodega de VibePlanner.\n"
-            "Tu misión es tomar las peticiones del usuario y mapearlas a un formato JSON estructurado rígido.\n\n"
+            "Tu misión es tomar las peticiones del usuario y mapearlas a un formato estructurado rígido.\n\n"
             
-            "REGLAS OBLIGATORIAS PARA CADA CAMPO DEL JSON:\n"
+            "REGLAS OBLIGATORIAS PARA CADA CAMPO:\n"
             "1. 'name': Nombre claro del artículo.\n"
             "2. 'category': Debe ser estrictamente uno de: 'Audio', 'Iluminación', 'Video', 'Estructuras', 'Cables', 'Consumibles', 'Logística'.\n"
             "3. 'total_stock': Cantidad numérica de elementos. Por defecto 1.0.\n"
-            "4. 'unit_of_measure': Debe ser estrictamente una de estas strings: 'uds', 'metros', 'packs', 'cajas', 'sets'. Si el usuario dice 'unidades', mapealo a 'uds'.\n"
-            "5. 'is_consumable': True si es material gastable (cintas, tirrajes, conectores rápidos, pilas), False para equipos duraderos.\n"
-            "6. 'price_per_unit': Extrae el precio o costo unitario en dólares (USD). Si el usuario da un precio global para un lote, divídelo entre el stock para calcular el unitario. Si no se menciona precio, pon 0.00.\n\n"
-            
-            "Estructura del JSON de salida esperado:\n"
-            "{{\n"
-            "  \"items\": [\n"
-            "    {{\n"
-            "      \"name\": \"...\",\n"
-            "      \"category\": \"...\",\n"
-            "      \"total_stock\": 1.0,\n"
-            "      \"unit_of_measure\": \"...\",\n"
-            "      \"is_consumable\": false,\n"
-            "      \"price_per_unit\": 0.00\n"
-            "    }}\n"
-            "  ],\n"
-            "  \"summary_message\": \"Breve resumen en español de lo que procesaste\"\n"
-            "}}\n\n"
-            "Responde únicamente con el objeto JSON puro sin bloques de código markdown extra."
+            "4. 'unit_of_measure': Debe mapearse estrictamente a una de estas strings idénticas al frontend:\n"
+            "   - 'uds', 'unidades', 'piezas', 'metros', 'rollos', 'packs', 'cajas', 'sets', 'litros', 'ml', 'kg', 'gramos'.\n"
+            "   - Si dice 'l' o 'litro', usa 'litros'.\n"
+            "   - Si dice 'pza' o 'unidad', llévalo a 'piezas' o 'unidades' según corresponda.\n"
+            "   - Si el usuario no aclara la unidad de medición, usa 'uds' por defecto.\n"
+            "5. 'is_consumable': True si es material gastable (cintas, tirrajes, líquidos de humo, pilas, catering), False para equipos fijos de hardware.\n"
+            "6. 'price_per_unit': Extrae el precio o costo unitario en dólares (USD). Si el usuario da un precio global para un lote, divídelo entre el stock para calcular el unitario."
         )),
         ("human", "{input}")
     ])
     
     try:
-        # CONSEJO: Si notas que json_mode sigue terco, quita el `method="json_mode"` 
-        # para que LangChain use Function Calling nativo, que es mucho más preciso.
-        structured_llm = llm.with_structured_output(InventoryBulkSchema, method="json_mode")
+        # Se remueve method="json_mode" para usar Tool Calling nativo, garantizando la consistencia de tipos
+        structured_llm = llm.with_structured_output(InventoryBulkSchema)
         analisis = (prompt_template | structured_llm).invoke({"input": prompt_usuario})
         
         return {

@@ -88,13 +88,28 @@ class Event(db.Model):
     time = db.Column(db.Time, nullable=False)
     target_audience = db.Column(db.String(50), nullable=False, default="General")
     
-    # Itinerario híbrido (Actividades, canciones, files, o momentos de catering/comida)
+    # --- ÚNICOS CAMPOS NUEVOS EN LA BD ---
+    # Para guardar el aforo y el presupuesto estimado del evento como histórico informativo
+    guests_count = db.Column(db.Integer, nullable=True, default=0)
+    estimated_logistic_budget = db.Column(db.Numeric(10, 2), nullable=True, default=0.00)
+    
     itinerary = db.Column(db.JSON, nullable=True, default=list)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     staff = db.relationship('EventStaff', back_populates='event', cascade="all, delete-orphan")
     inventory_assignments = db.relationship('EventInventory', back_populates='event', cascade="all, delete-orphan")
 
+# EventInventory vuelve a ser el pivote rígido original que amarra SOLO items reales de la DB:
+class EventInventory(db.Model):
+    __tablename__ = 'event_inventory'
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete="CASCADE"), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('inventory_items.id', ondelete="CASCADE"), nullable=False)
+    quantity_used = db.Column(db.Numeric(10, 2), nullable=False, default=1.0) 
+
+    event = db.relationship('Event', back_populates='inventory_assignments')
+    item = db.relationship('InventoryItem', back_populates='event_assignments')
 
 class EventStaff(db.Model):
     __tablename__ = 'event_staff'
@@ -125,16 +140,3 @@ class InventoryItem(db.Model):
     
     event_assignments = db.relationship('EventInventory', back_populates='item', cascade="all, delete-orphan")
 
-
-class EventInventory(db.Model):
-    __tablename__ = 'event_inventory'
-
-    id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete="CASCADE"), nullable=False)
-    item_id = db.Column(db.Integer, db.ForeignKey('inventory_items.id', ondelete="CASCADE"), nullable=False)
-    
-    # Cambiado a Numeric por si se asignan fracciones (ej: 1.5 kg de carne)
-    quantity_used = db.Column(db.Numeric(10, 2), nullable=False, default=1.0) 
-
-    event = db.relationship('Event', back_populates='inventory_assignments')
-    item = db.relationship('InventoryItem', back_populates='event_assignments')

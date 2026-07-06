@@ -2,9 +2,34 @@
 from flask import Blueprint, jsonify, request
 from database import db
 from models import Song, Genre, Author
+from services.song_vision_service import SongVisionService
 from services.ai_song_service import generar_cancion_ia
 songs_bp = Blueprint('songs', __name__, url_prefix='/api/songs')
 from sqlalchemy import or_, func, cast, String
+
+
+vision_service = SongVisionService()
+
+@songs_bp.route('/upload-vision', methods=['POST'])
+def upload_song_vision_ia():
+    data = request.get_json() or {}
+    image_base64 = data.get('image_base64') # String Base64 sin prefijos (data:image/jpeg;base64,)
+    
+    if not image_base64:
+        return jsonify({"error": "No se recibió el flujo de datos en Base64 de la captura, varón."}), 400
+        
+    # Invocamos el transcriptor de visión en caliente
+    analisis_ia = vision_service.extract_song_from_image(image_base64)
+    
+    if not analisis_ia["success"]:
+        return jsonify({"error": analisis_ia["error"]}), 422
+        
+    # Devolvemos la estructura preformateada lista para acoplarse al Front
+    return jsonify({
+        "message": "Imagen armonizada y procesada por el transcriptor virtual con éxito.",
+        "detected_name": analisis_ia["song_name"],
+        "structure": analisis_ia["structure"]
+    }), 200
 @songs_bp.route('/', methods=['GET'])
 def get_all_songs():
     name_query = request.args.get('name')
