@@ -49,7 +49,7 @@ def check_if_token_revoked(jwt_header, jwt_payload):
     return token is not None
 
 # --- CONFIGURACIÓN DE CORS ---
-CORS(app, origins=["http://localhost:3000", "https://vibe-planner-front.vercel.app/"], supports_credentials=True)
+CORS(app, origins=["http://localhost:3000", "https://vibe-planner-front.vercel.app"], supports_credentials=True)
 
 # --- INICIALIZACIÓN DE MÓDULOS ---
 db.init_app(app)
