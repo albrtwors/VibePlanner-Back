@@ -23,5 +23,6 @@ dotenv
 psycopg2-binary
 requests
 yagmail
+Flask-JWT-Extended
 #
 #as

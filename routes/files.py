@@ -176,26 +176,39 @@ def delete_file(file_id):
         db.session.rollback()
         print(f"[ERROR] Al eliminar cancionero: {e}")
         return jsonify({"message": "Ocurrió un error interno al intentar eliminar el cancionero."}), 500
-    
+
+
+# ==========================================
+# 6. ASISTENTE DE IA DEL CANCIONERO (POST)
+# ==========================================
 @files_bp.route('/chat', methods=['POST'])
 def chat_asistente_files():
     data = request.get_json() or {}
     prompt_usuario = data.get("prompt", "").strip()
 
+    # El frontend nos manda el estado ACTUAL del cancionero que se está armando en pantalla
+    # (aún no guardado en DB), para que la IA pueda agregar o quitar sobre esa base.
+    # Formato esperado: [{"id": 4, "name": "...", "author": "...", "genre": "..."}, ...]
+    current_songs = data.get("current_songs", [])
+    if not isinstance(current_songs, list):
+        current_songs = []
+
     if not prompt_usuario:
         return jsonify({
-            "bot_response": "¡Hola, varón! Cuéntame qué canciones o géneros quieres buscar para tu setlist hoy.",
-            "songs": []
+            "bot_response": "¡Hola, varón! Cuéntame qué canciones, artistas o géneros quieres agregar o quitar de tu setlist hoy.",
+            "songs_to_add": [],
+            "songs_to_remove": []
         }), 200
 
     try:
         # Ejecutamos la lógica del servicio IA dentro del contexto
-        resultado = procesar_asistente_file_ia(prompt_usuario)
+        resultado = procesar_asistente_file_ia(prompt_usuario, current_songs)
         return jsonify(resultado), 200
 
     except Exception as e:
         print(f"[CRITICAL] Error en la ruta del asistente de cancioneros: {e}")
         return jsonify({
             "bot_response": "Disculpa, varón. Tuve un contratiempo interno procesando esa consulta musical.",
-            "songs": []
+            "songs_to_add": [],
+            "songs_to_remove": []
         }), 500

@@ -6,7 +6,7 @@ from services.song_vision_service import SongVisionService
 from services.ai_song_service import generar_cancion_ia
 songs_bp = Blueprint('songs', __name__, url_prefix='/api/songs')
 from sqlalchemy import or_, func, cast, String
-
+from utils.decorators import roles_required
 
 vision_service = SongVisionService()
 
