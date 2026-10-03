@@ -1,12 +1,14 @@
 # routes/genres.py
 from flask import Blueprint, jsonify, request
 from database import db
+from utils.decorators import permissions_required
 from models import Genre
 
 # Creamos el Blueprint para géneros con su respectivo prefijo
 genres_bp = Blueprint('genres', __name__, url_prefix='/api/genres')
 
 @genres_bp.route('/', methods=['GET'])
+@permissions_required('songs.view')
 def get_all_genres():
     """Obtener todos los géneros musicales"""
     all_genres = Genre.query.all()
@@ -18,6 +20,7 @@ def get_all_genres():
 
 
 @genres_bp.route('/<int:genre_id>', methods=['GET'])
+@permissions_required('songs.view')
 def get_genre(genre_id):
     """Obtener un género específico por su ID"""
     genre = Genre.query.get_or_404(genre_id)
@@ -29,6 +32,7 @@ def get_genre(genre_id):
 
 
 @genres_bp.route('/', methods=['POST'])
+@permissions_required('songs.manage_catalog')
 def create_genre():
     """Crear un nuevo género (ej. Rock, Pop, Indie)"""
     data = request.get_json()

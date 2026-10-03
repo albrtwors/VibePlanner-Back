@@ -1,11 +1,13 @@
 # routes/authors.py
 from flask import Blueprint, jsonify, request
 from database import db
+from utils.decorators import permissions_required
 from models import Author  # <-- Importamos el nuevo modelo simple
 
 authors_bp = Blueprint('authors', __name__, url_prefix='/api/authors')
 
 @authors_bp.route('/', methods=['GET'])
+@permissions_required('songs.view')
 def get_all_authors():
     """Obtener todos los autores para el select del frontend"""
     all_authors = Author.query.all()
@@ -14,6 +16,7 @@ def get_all_authors():
 
 
 @authors_bp.route('/<int:author_id>', methods=['GET'])
+@permissions_required('songs.view')
 def get_author(author_id):
     """Obtener un autor específico"""
     author = Author.query.get_or_404(author_id)
@@ -21,6 +24,7 @@ def get_author(author_id):
 
 
 @authors_bp.route('/', methods=['POST'])
+@permissions_required('songs.manage_catalog')
 def create_author():
     """Crear un nuevo autor/artista"""
     data = request.get_json()

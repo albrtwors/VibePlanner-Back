@@ -6,11 +6,12 @@ from services.song_vision_service import SongVisionService
 from services.ai_song_service import generar_cancion_ia
 songs_bp = Blueprint('songs', __name__, url_prefix='/api/songs')
 from sqlalchemy import or_, func, cast, String
-from utils.decorators import roles_required
+from utils.decorators import permissions_required
 
 vision_service = SongVisionService()
 
 @songs_bp.route('/upload-vision', methods=['POST'])
+@permissions_required('songs.create', 'ai.use')
 def upload_song_vision_ia():
     data = request.get_json() or {}
     image_base64 = data.get('image_base64') # String Base64 sin prefijos (data:image/jpeg;base64,)
@@ -31,6 +32,7 @@ def upload_song_vision_ia():
         "structure": analisis_ia["structure"]
     }), 200
 @songs_bp.route('/', methods=['GET'])
+@permissions_required('songs.view')
 def get_all_songs():
     name_query = request.args.get('name')
     genre_query = request.args.get('genre')
@@ -79,6 +81,7 @@ def get_all_songs():
     })
 
 @songs_bp.route('/<int:song_id>', methods=['GET'])
+@permissions_required('songs.view')
 def get_song(song_id):
     # Hacemos la consulta con los mismos joins pero filtrando estrictamente por el ID de la canción
     song = (
@@ -99,6 +102,7 @@ def get_song(song_id):
     })
 
 @songs_bp.route('/', methods=['POST'])
+@permissions_required('songs.create')
 def create_song():
     data = request.get_json(force=True)
     
@@ -151,6 +155,7 @@ def create_song():
 
 
 @songs_bp.route('/<int:song_id>', methods=['PUT'])
+@permissions_required('songs.edit')
 def update_song(song_id):
     """
     Ruta para editar una canción existente.
@@ -204,6 +209,7 @@ def update_song(song_id):
 
 
 @songs_bp.route('/<int:song_id>', methods=['DELETE'])
+@permissions_required('songs.delete')
 def delete_song(song_id):
     """
     Ruta para eliminar una canción por su ID.
@@ -220,6 +226,7 @@ def delete_song(song_id):
 
 
 @songs_bp.route('/generate-ia', methods=['POST'])
+@permissions_required('ai.use')
 def generate_song_structure():
     data = request.get_json(force=True)
     user_prompt = data.get('prompt')

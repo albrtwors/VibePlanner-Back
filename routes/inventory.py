@@ -1,6 +1,7 @@
 # routes/routes_inventory.py
 from flask import Blueprint, request, jsonify
 from database import db
+from utils.decorators import permissions_required
 from models import InventoryItem
 from services.ai_inventory_service import procesar_extraccion_inventario_ia
 inventory_bp = Blueprint('inventory_bp', __name__)
@@ -9,6 +10,7 @@ inventory_bp = Blueprint('inventory_bp', __name__)
 # 1. GET - LISTAR ARTÍCULOS (CON QUERY PARAMS)
 # ==========================================
 @inventory_bp.route('/api/inventory/upload-ia', methods=['POST'])
+@permissions_required('inventory.create', 'ai.use')
 def bulk_upload_inventory_ia():
     data = request.get_json() or {}
     user_prompt = data.get('prompt')
@@ -30,6 +32,7 @@ def bulk_upload_inventory_ia():
         "raw_extracted": resultado_ia["items"] # Aquí va la lista de diccionarios limpios
     }), 200
 @inventory_bp.route('/api/inventory', methods=['GET'])
+@permissions_required('inventory.view')
 def get_inventory():
     query = InventoryItem.query
     
@@ -63,6 +66,7 @@ def get_inventory():
 # 2. GET - DETALLE DE UN ARTÍCULO (NUEVA)
 # ==========================================
 @inventory_bp.route('/api/inventory/<int:item_id>', methods=['GET'])
+@permissions_required('inventory.view')
 def get_inventory_item(item_id):
     item = InventoryItem.query.get(item_id)
     if not item:
@@ -83,6 +87,7 @@ def get_inventory_item(item_id):
 # 3. POST - CREAR NUEVO ARTÍCULO
 # ==========================================
 @inventory_bp.route('/api/inventory', methods=['POST'])
+@permissions_required('inventory.create')
 def create_inventory_item():
     data = request.get_json() or {}
     
@@ -110,6 +115,7 @@ def create_inventory_item():
 # 4. PUT - ACTUALIZAR ARTÍCULO (NUEVA)
 # ==========================================
 @inventory_bp.route('/api/inventory/<int:item_id>', methods=['PUT'])
+@permissions_required('inventory.edit')
 def update_inventory_item(item_id):
     item = InventoryItem.query.get(item_id)
     if not item:
@@ -139,6 +145,7 @@ def update_inventory_item(item_id):
 # 5. DELETE - ELIMINAR ARTÍCULO (NUEVA)
 # ==========================================
 @inventory_bp.route('/api/inventory/<int:item_id>', methods=['DELETE'])
+@permissions_required('inventory.delete')
 def delete_inventory_item(item_id):
     item = InventoryItem.query.get(item_id)
     if not item:

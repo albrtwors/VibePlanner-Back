@@ -3,10 +3,13 @@ from flask import Flask, jsonify
 from database import db
 import models 
 from flask_cors import CORS
-from routes import genres, songs, authors, files, inventory, events, chatbot, auth
+from routes import genres, songs, authors, files, inventory, events, chatbot, auth, roles, users
 from models import TokenBlocklist
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -16,8 +19,32 @@ SUPABASE_URL = os.getenv('DATABASE_URL', '')
 if SUPABASE_URL.startswith("postgres://"):
     SUPABASE_URL = SUPABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Si no hay DATABASE_URL (entorno local sin .env), caemos a un SQLite local
+# para que se puedan correr migraciones y seeds sin depender de Supabase.
+# Ruta absoluta: Flask-SQLAlchemy resolvería un path relativo contra
+# instance/, que es donde vive la base de datos del proyecto.
+if not SUPABASE_URL:
+    SUPABASE_URL = f"sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')}"
+
 app.config['SQLALCHEMY_DATABASE_URI'] = SUPABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# --- CONFIGURACIÓN DE CORREO (envío de códigos de verificación / reset) ---
+app.config['MAIL_USER'] = os.getenv('GMAIL_USER', '')
+app.config['MAIL_APP_PASSWORD'] = os.getenv('GMAIL_APP_PASSWORD', '')
+
+# Si faltan credenciales de Gmail activamos el modo desarrollo: los códigos se
+# imprimen en la consola y también se devuelven en la respuesta de la API
+# para poder probar el flujo completo sin configurar el SMTP.
+app.config['MAIL_DEV_MODE'] = os.getenv(
+    'MAIL_DEV_MODE',
+    'true' if not (app.config['MAIL_USER'] and app.config['MAIL_APP_PASSWORD']) else 'false'
+).lower() in ('1', 'true', 'yes')
+
+# Minutos de validez de los códigos y reenvío mínimo entre emisiones
+app.config['AUTH_CODE_TTL_MINUTES'] = int(os.getenv('AUTH_CODE_TTL_MINUTES', '15'))
+app.config['AUTH_CODE_RESEND_COOLDOWN_SECONDS'] = int(os.getenv('AUTH_CODE_RESEND_COOLDOWN_SECONDS', '60'))
+app.config['AUTH_CODE_MAX_ATTEMPTS'] = int(os.getenv('AUTH_CODE_MAX_ATTEMPTS', '5'))
 
 # --- CONFIGURACIÓN DE SEGURIDAD (JWT) ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "tu_clave_secreta_super_pro_para_firmar_tokens")
@@ -39,6 +66,12 @@ app.config["JWT_COOKIE_NAME"] = "vibe_token"
 app.config["JWT_ACCESS_COOKIE_NAME"] = "vibe_token"
 # =====================================================================
 
+# Que /api/songs y /api/songs/ sean la MISMA ruta.
+# Antes Flask respondía 308 en una de las dos formas y el redirect mandaba al
+# navegador directo a http://localhost:5000: al salir del proxy de Next se perdía
+# la cookie `vibe_token` y la respuesta era 401 (no cargaban los registros).
+app.url_map.strict_slashes = False
+
 jwt = JWTManager(app)
 
 # Callback indispensable para verificar la validez del token contra la base de datos (Logout check)
@@ -55,6 +88,8 @@ CORS(app, origins=["http://localhost:3000", "https://vibe-planner-front.vercel.a
 db.init_app(app)
 
 app.register_blueprint(auth.auth_bp)
+app.register_blueprint(roles.roles_bp)
+app.register_blueprint(users.users_bp)
 app.register_blueprint(songs.songs_bp)
 app.register_blueprint(chatbot.chatbot_bp)
 app.register_blueprint(inventory.inventory_bp)
@@ -71,6 +106,17 @@ def shutdown_session(exception=None):
 def health():
     total_songs = models.Song.query.count()
     return jsonify({"status": "ok", "songs_count": total_songs})
+
+
+# ==========================================
+# COMANDO DE CONSOLA PARA CARGAR DATOS INICIALES
+# Uso: source .venv/bin/activate && flask --app app seed
+# ==========================================
+@app.cli.command('seed')
+def seed_command():
+    """Carga datos iniciales de demostración (idempotente)."""
+    from seeds import seed_database
+    seed_database()
 
 if __name__ == '__main__':
     app.run(debug=True)

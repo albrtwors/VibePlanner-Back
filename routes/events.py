@@ -3,6 +3,7 @@ import uuid
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from database import db
+from utils.decorators import permissions_required
 from services.ai_participant_service import ParticipantService
 from services.ai_event_service import AssistantService
 from services.email_service import EmailNotifierService
@@ -17,6 +18,7 @@ participant_service = ParticipantService()
 # POST - CHAT ASISTENTE VIRTUAL (creación/edición de eventos por dictado)
 # ==========================================
 @event_bp.route('/api/assistant/chat', methods=['POST'])
+@permissions_required('ai.use')
 def assistant_chat():
     data = request.get_json() or {}
     user_input = data.get('message', '')
@@ -39,6 +41,7 @@ def assistant_chat():
 # POST - CREAR EVENTO CON VALIDACIÓN DE STOCK
 # ==========================================
 @event_bp.route('/api/events', methods=['POST'])
+@permissions_required('events.create')
 def create_event():
     data = request.get_json() or {}
 
@@ -127,6 +130,7 @@ def create_event():
 # GET - LISTAR EVENTOS
 # ==========================================
 @event_bp.route('/api/events', methods=['GET'])
+@permissions_required('events.view')
 def get_events():
     query = Event.query
     start_date = request.args.get('start_date')
@@ -159,6 +163,7 @@ def get_events():
 # GET - DETALLE DE UN EVENTO (INCLUYE GRUPOS Y PARTICIPANTES)
 # ==========================================
 @event_bp.route('/api/events/<int:event_id>', methods=['GET'])
+@permissions_required('events.view')
 def get_event_detail(event_id):
     e = Event.query.get(event_id)
     if not e:
@@ -208,6 +213,7 @@ def get_event_detail(event_id):
 # PUT - ACTUALIZAR EVENTO EXISTENTE
 # ==========================================
 @event_bp.route('/api/events/<int:event_id>', methods=['PUT'])
+@permissions_required('events.edit')
 def update_event(event_id):
     e = Event.query.get(event_id)
     if not e:
@@ -257,6 +263,7 @@ def update_event(event_id):
 # INSERCIÓN EN LOTE (MANUAL O PARSEO DESDE CSV DEL FRONTEND)
 # ==========================================
 @event_bp.route('/api/events/<int:event_id>/participants/bulk', methods=['POST'])
+@permissions_required('events.edit')
 def add_participants_bulk(event_id):
     e = Event.query.get(event_id)
     if not e: return jsonify({"error": "Evento no encontrado."}), 404
@@ -315,6 +322,7 @@ def add_participants_bulk(event_id):
 # CHECK-IN DE CONTROL FÍSICO DE LOS APORTES DEL GRUPO
 # ==========================================
 @event_bp.route('/api/events/<int:event_id>/groups/<int:group_id>/check-item', methods=['PUT'])
+@permissions_required('events.edit')
 def check_group_item(event_id, group_id):
     grupo = ParticipantGroup.query.filter_by(id=group_id, event_id=event_id).first()
     if not grupo:
@@ -349,6 +357,7 @@ def check_group_item(event_id, group_id):
 # ADICIÓN UNIFICADA POR LOTE (JSON DEL FORMULARIO FRONTEND)
 # ==========================================
 @event_bp.route('/api/events/<int:event_id>/participants/json-sync', methods=['POST'])
+@permissions_required('events.edit')
 def sync_json_participants(event_id):
     e = Event.query.get(event_id)
     if not e:
@@ -444,6 +453,7 @@ def sync_json_participants(event_id):
 # confirma el formulario.
 # ==========================================
 @event_bp.route('/api/events/<int:event_id>/assistant/sync-participants', methods=['POST'])
+@permissions_required('events.edit', 'ai.use')
 def sync_ai_participants(event_id):
     data = request.get_json() or {}
     user_input = data.get('message', '')
@@ -468,6 +478,7 @@ def sync_ai_participants(event_id):
 # cada uno; el armado de los bloques sigue siendo determinístico en el front.
 # ==========================================
 @event_bp.route('/api/assistant/map-csv-headers', methods=['POST'])
+@permissions_required('events.edit', 'ai.use')
 def map_csv_headers():
     data = request.get_json() or {}
     headers = data.get('headers', [])

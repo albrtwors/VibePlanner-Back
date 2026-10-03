@@ -1,6 +1,7 @@
 # routes/files.py
 from flask import Blueprint, jsonify, request
 from database import db
+from utils.decorators import permissions_required
 from models import File, FileSong, Song
 from services.ai_file_service import procesar_asistente_file_ia
 files_bp = Blueprint('files', __name__, url_prefix='/api/files')
@@ -9,6 +10,7 @@ files_bp = Blueprint('files', __name__, url_prefix='/api/files')
 # 1. OBTENER TODOS LOS REPERTORIOS (GET)
 # ==========================================
 @files_bp.route('/', methods=['GET'])
+@permissions_required('files.view')
 def get_all_files():
     # Capturamos filtros básicos por si quieres buscar listas por nombre o temática
     name_query = request.args.get('name')
@@ -41,6 +43,7 @@ def get_all_files():
 # 2. OBTENER UN REPERTORIO POR ID CON SU ORDEN (GET)
 # ==========================================
 @files_bp.route('/<int:file_id>', methods=['GET'])
+@permissions_required('files.view')
 def get_file(file_id):
     file_obj = File.query.get_or_404(file_id)
     
@@ -69,6 +72,7 @@ def get_file(file_id):
 # 3. CREAR UN NUEVO REPERTORIO (POST)
 # ==========================================
 @files_bp.route('/', methods=['POST'])
+@permissions_required('files.create')
 def create_file():
     data = request.get_json(force=True)
     
@@ -119,6 +123,7 @@ def create_file():
 # 4. EDITAR UN REPERTORIO (PUT)
 # ==========================================
 @files_bp.route('/<int:file_id>', methods=['PUT'])
+@permissions_required('files.edit')
 def update_file(file_id):
     file_obj = File.query.get_or_404(file_id)
     data = request.get_json(force=True)
@@ -166,6 +171,7 @@ def update_file(file_id):
 # 5. ELIMINAR UN REPERTORIO (DELETE)
 # ==========================================
 @files_bp.route('/<int:file_id>', methods=['DELETE'])
+@permissions_required('files.delete')
 def delete_file(file_id):
     file_obj = File.query.get_or_404(file_id)
     try:
@@ -182,6 +188,7 @@ def delete_file(file_id):
 # 6. ASISTENTE DE IA DEL CANCIONERO (POST)
 # ==========================================
 @files_bp.route('/chat', methods=['POST'])
+@permissions_required('ai.use')
 def chat_asistente_files():
     data = request.get_json() or {}
     prompt_usuario = data.get("prompt", "").strip()

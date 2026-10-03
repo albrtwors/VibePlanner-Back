@@ -1,5 +1,6 @@
 # routes/routes_chatbot.py
 from flask import Blueprint, request, jsonify
+from utils.decorators import permissions_required
 from services.chatbot_service import VibePlannerChatbot
 from models import Song, InventoryItem  # Importa tus modelos reales de VibePlanner
 
@@ -7,6 +8,7 @@ chatbot_bp = Blueprint('chatbot_bp', __name__)
 vibe_bot = VibePlannerChatbot()
 
 @chatbot_bp.route('/api/chatbot', methods=['POST'])
+@permissions_required('ai.use')
 def chat_with_assistant():
     data = request.get_json() or {}
     user_message = data.get('message')

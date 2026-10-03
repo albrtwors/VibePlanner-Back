@@ -10,6 +10,73 @@ class EmailNotifierService:
         self.user = os.getenv("GMAIL_USER")
         self.password = os.getenv("GMAIL_APP_PASSWORD")
         
+    # ------------------------------------------------------------------
+    # UTILIDADES PARA AUTENTICACIÓN (VERIFICACIÓN DE EMAIL / RESET)
+    # ------------------------------------------------------------------
+    @property
+    def is_configured(self) -> bool:
+        """True si hay credenciales de Gmail cargadas."""
+        return bool(self.user and self.password)
+
+    def send_auth_code(self, recipient: str, code: str, purpose: str, username: str = "") -> bool:
+        """
+        Envía el código numérico de un solo uso para dos flujos:
+          - purpose='register'       -> verificación del correo al registrarse
+          - purpose='password_reset' -> autorización para cambiar la contraseña
+
+        Si no hay credenciales configuradas devuelve False y deja el código
+        únicamente en la consola (modo desarrollo).
+        """
+        if not self.is_configured:
+            print(f"[MAIL-DEV] Sin credenciales de Gmail. No se pudo enviar el código a {recipient}.")
+            return False
+
+        if purpose == 'password_reset':
+            asunto = f"🔐 Restablecé tu contraseña de VibePlanner (código: {code})"
+            titulo = "Recuperación de Acceso"
+            intro = "Recibimos un pedido para restablecer la contraseña de tu cuenta."
+            cierre = "Si no solicitaste este cambio, ignorá este mensaje y tu contraseña seguirá siendo la misma."
+        else:
+            asunto = f"✉️ Confirmá tu correo en VibePlanner (código: {code})"
+            titulo = "Verificación de Correo"
+            intro = "Confirmá este correo para activar tu cuenta de VibePlanner."
+            cierre = "Si no creaste esta cuenta, podés ignorar este mensaje sin consecuencias."
+
+        saludo = f"Hola {username}," if username else "Hola,"
+
+        html_content = f"""
+        <html>
+            <body style="font-family: sans-serif; background-color: #0f172a; color: #e2e8f0; padding: 20px; margin: 0;">
+                <div style="max-width: 650px; margin: 0 auto; background-color: #1e293b; border: 1px solid #334155; padding: 30px; border-radius: 16px;">
+                    <div style="border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 20px;">
+                        <span style="font-size: 10px; font-weight: bold; color: #6366f1; text-transform: uppercase; letter-spacing: 0.1em;">VibePlanner</span>
+                        <h1 style="font-size: 24px; font-weight: 900; color: #ffffff; margin: 5px 0 0 0; text-transform: uppercase;">{titulo}</h1>
+                    </div>
+
+                    <p style="font-size: 14px; color: #cbd5e1; margin: 0 0 10px 0;">{saludo}</p>
+                    <p style="font-size: 14px; color: #94a3b8; margin: 0 0 25px 0; line-height: 1.6;">{intro}</p>
+
+                    <div style="background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 25px; text-align: center;">
+                        <p style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; letter-spacing: 0.2em; margin: 0 0 12px 0;">Tu código de seguridad</p>
+                        <p style="font-family: monospace; font-size: 42px; font-weight: bold; color: #ffffff; letter-spacing: 12px; margin: 0;">{code}</p>
+                    </div>
+
+                    <p style="font-size: 12px; color: #64748b; margin: 25px 0 0 0; line-height: 1.6;">
+                        El código expira en breve y solo puede usarse una vez. {cierre}
+                    </p>
+
+                    <div style="margin-top: 30px; border-top: 1px solid #334155; padding-top: 15px; text-align: center;">
+                        <p style="font-size: 11px; color: #64748b; margin: 0;">Este es un mensaje automatizado de seguridad de VibePlanner.</p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+
+        yag = yagmail.SMTP(self.user, self.password)
+        yag.send(to=recipient, subject=asunto, contents=html_content)
+        return True
+
     def send_production_sheet(self, recipient_list: list, event_data: dict):
         """
         Envía la hoja de producción completa (Itinerario + Inventario) al Staff.
