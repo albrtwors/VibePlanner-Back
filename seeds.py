@@ -17,6 +17,7 @@ from models import (
     Author,
     Genre,
     Song,
+    SONG_STATUS_PUBLICADA,
     File,
     FileSong,
     Event,
@@ -38,6 +39,8 @@ from utils.permissions import (
     catalog_as_dicts,
     default_permissions_for,
 )
+
+from services.transpose_service import detect_key
 
 DEFAULT_PASSWORD = "vibeplanner123"
 
@@ -371,9 +374,17 @@ def seed_taxonomy():
 
 def seed_songs():
     created = 0
+    tuned = 0
     for name, author_name, genre_name, parts in SONGS:
         existing = Song.query.filter_by(name=name).first()
+
+        # Las canciones que ya existían antes de la moderación no tienen tono.
+        # Se lo deducimos de la estructura, pero sin pisar un tono ya cargado.
         if existing:
+            if not existing.key and existing.structure:
+                existing.key = detect_key(existing.structure)
+                if existing.key:
+                    tuned += 1
             continue
 
         author = Author.query.filter_by(name=author_name).first()
@@ -382,17 +393,26 @@ def seed_songs():
             print(f"[SEED] ⚠ Canción '{name}' salteada: falta autor o género.")
             continue
 
+        structure = {"parts": [{"title": t, "content": c} for t, c in parts]}
+
         db.session.add(Song(
             name=name,
             author_id=author.id,
             genre_id=genre.id,
-            structure={"parts": [{"title": t, "content": c} for t, c in parts]},
+            structure=structure,
+            # Las canciones de demo van publicadas: si quedaran en borrador y sin
+            # dueño, solo las vería un moderador y el catálogo se vería vacío.
+            key=detect_key(structure),
+            status=SONG_STATUS_PUBLICADA,
             created_at=datetime.utcnow()
         ))
         created += 1
 
     db.session.commit()
-    print(f"[SEED] Canciones: {Song.query.count()} totales ({created} nuevas).")
+    print(
+        f"[SEED] Canciones: {Song.query.count()} totales "
+        f"({created} nuevas, {tuned} con tono deducido)."
+    )
 
 
 def seed_inventory():

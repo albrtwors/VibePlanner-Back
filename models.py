@@ -43,12 +43,30 @@ class User(db.Model):
     # Relaciones de auditoría para saber quién creó qué
     events = db.relationship('Event', backref='creator', lazy=True)
     files = db.relationship('File', backref='creator', lazy=True)
-    songs = db.relationship('Song', backref='creator', lazy=True)
+
+    # Song tiene DOS claves foráneas hacia users (user_id, que creó la canción, y
+    # reviewed_by_id, que hizo la última moderación), así que hay que
+    # desambiguar cuál de las dos es esta.
+    songs = db.relationship(
+        'Song',
+        backref='creator',
+        lazy=True,
+        foreign_keys='Song.user_id'
+    )
 
     auth_codes = db.relationship(
         'VerificationCode',
         back_populates='user',
         cascade='all, delete-orphan',
+        lazy='dynamic'
+    )
+
+    # SongSuggestion tiene dos FK hacia users (autor de la propuesta y moderador
+    # que la resolvió), así que hay que desambiguar cuál de las dos es esta.
+    song_suggestions = db.relationship(
+        'SongSuggestion',
+        foreign_keys='SongSuggestion.user_id',
+        back_populates='user',
         lazy='dynamic'
     )
 
@@ -198,6 +216,39 @@ class RolePermission(db.Model):
 # MÓDULOS DEL CORE (CANCIONES Y REPERTORIO)
 # ==========================================
 
+# ==========================================
+# CICLO DE VIDA DE UNA CANCIÓN (MODERACIÓN)
+# ==========================================
+# El estado vive como texto en songs.status, no como enum de la base, para
+# que el seed y las rutas puedan seguir Comparing contra estas constantes sin
+# importar el motor (Postgres en producción, SQLite en desarrollo).
+SONG_STATUS_BORRADOR = 'borrador'
+SONG_STATUS_EN_REVISION = 'en_revision'
+SONG_STATUS_APROBADA = 'aprobada'
+SONG_STATUS_RECHAZADA = 'rechazada'
+SONG_STATUS_PUBLICADA = 'publicada'
+
+SONG_STATUSES = (
+    SONG_STATUS_BORRADOR,
+    SONG_STATUS_EN_REVISION,
+    SONG_STATUS_APROBADA,
+    SONG_STATUS_RECHAZADA,
+    SONG_STATUS_PUBLICADA,
+)
+
+# Estados de una propuesta de arreglo feita por un usuario. Se resuelven en la
+# cola de moderación y, al aprobarse, pisan la estructura de la canción.
+SONG_SUGGESTION_PENDIENTE = 'pendiente'
+SONG_SUGGESTION_APROBADA = 'aprobada'
+SONG_SUGGESTION_RECHAZADA = 'rechazada'
+
+SONG_SUGGESTION_STATUSES = (
+    SONG_SUGGESTION_PENDIENTE,
+    SONG_SUGGESTION_APROBADA,
+    SONG_SUGGESTION_RECHAZADA,
+)
+
+
 class Author(db.Model):
     __tablename__ = 'authors'
     
@@ -226,10 +277,78 @@ class Song(db.Model):
     # CORRECCIÓN: Clave foránea para la relación User.songs
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
+    # --- Proceso de transposición ---
+    # Tono musical base con el que está escrita/armada la canción (ej: 'Am',
+    # 'C#m', 'Bb'). Es el ancla del resto de las armonizaciones: transponer es
+    # calcular la distancia en semitonos contra este valor.
+    key = db.Column(db.String(10), nullable=True)
+    
+    # --- Proceso de verificación y moderación ---
+    # Estado del ciclo de vida: borrador -> en_revision -> aprobada -> publicada,
+    # con 'rechazada' como vuelta atrás para que el autor corrija y reenvíe.
+    status = db.Column(db.String(20), nullable=False, default=SONG_STATUS_BORRADOR, index=True)
+    
+    # Cuándo el autor pidió que la revisaran (último envío a moderación)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    
+    # Quién y cuándo resolvió la última revisión, con el motivo que dejó
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    review_notes = db.Column(db.String(400), nullable=True)
+    
     structure = db.Column(db.JSON, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     files_association = db.relationship('FileSong', back_populates='song', cascade="all, delete-orphan")
+    suggestions = db.relationship('SongSuggestion', back_populates='song', cascade="all, delete-orphan")
+    reviewed_by = db.relationship('User', foreign_keys=[reviewed_by_id])
+
+    @property
+    def is_public(self):
+        """Solo las publicadas entran al repertorio general de los eventos."""
+        return self.status == SONG_STATUS_PUBLICADA
+
+
+class SongSuggestion(db.Model):
+    """
+    Propuesta de arreglo sobre una canción existente (letra, acordes o tono).
+
+    Es el canal de colaboración del módulo: cualquier usuario con permiso de
+    sugerencia propone el cambio, y un moderador lo aprueba (queda aplicado a
+    Song.structure) o lo rechaza con un motivo. Así nada llega a la letra
+    pública sin pasar por revisión.
+    """
+    __tablename__ = 'song_suggestions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    song_id = db.Column(
+        db.Integer, db.ForeignKey('songs.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+
+    # Quién propone el cambio
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+
+    # Estructura propuesta. Si viene en None, la sugerencia es solo de tono
+    # (o un comentario) y no pisa la letra de la canción.
+    suggested_structure = db.Column(db.JSON, nullable=True)
+    suggested_key = db.Column(db.String(10), nullable=True)
+    notes = db.Column(db.String(400), nullable=True)
+
+    status = db.Column(
+        db.String(20), nullable=False, default=SONG_SUGGESTION_PENDIENTE, index=True
+    )
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolved_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    resolution_notes = db.Column(db.String(400), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    song = db.relationship('Song', back_populates='suggestions')
+    user = db.relationship(
+        'User',
+        foreign_keys=[user_id],
+        back_populates='song_suggestions'
+    )
+    resolved_by = db.relationship('User', foreign_keys=[resolved_by_id])
 
 
 class FileSong(db.Model):

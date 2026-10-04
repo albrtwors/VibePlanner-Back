@@ -25,6 +25,8 @@ PERMISSION_CATALOG = [
     ("songs.create", "Crear canciones", "Canciones", "Cargar canciones nuevas, incluso con IA"),
     ("songs.edit", "Editar canciones", "Canciones", "Modificar letras, acordes y estructura"),
     ("songs.delete", "Eliminar canciones", "Canciones", "Borrar canciones del catálogo"),
+    ("songs.suggest", "Sugerir arreglos", "Canciones", "Proponer cambios de letra, acordes o tono en una canción"),
+    ("songs.moderate", "Moderar canciones", "Canciones", "Revisar canciones en revisión y resolver las sugerencias del equipo"),
     ("songs.manage_catalog", "Administrar géneros y autores", "Canciones", "Crear y editar los listados de géneros y autores"),
 
     # --- Repertorio (cancioneros) ---
@@ -104,12 +106,14 @@ DEFAULT_ROLE_PERMISSIONS = {
         "events.view",
     ],
 
-    # Músico: carga y edita canciones, arma cancioneros
+    # Músico: carga y edita canciones, arma cancioneros y modera el repertorio
     "musico": [
         "dashboard.view",
         "songs.view",
         "songs.create",
         "songs.edit",
+        "songs.suggest",
+        "songs.moderate",
         "files.view",
         "files.create",
         "files.edit",
@@ -117,17 +121,18 @@ DEFAULT_ROLE_PERMISSIONS = {
         "ai.use",
     ],
 
-    # Cantante: canta, así que ajusta su material y tiene AI
+    # Cantante: canta, así que ajusta su material, propone arreglos y tiene AI
     "cantante": [
         "dashboard.view",
         "songs.view",
         "songs.edit",
+        "songs.suggest",
         "files.view",
         "events.view",
         "ai.use",
     ],
 
-    # Apoyo logístico:IU de eventos, bodega y balance de gastos
+    # Apoyo logístico: IU de eventos, bodega y balance de gastos
     "apoyo_logistico": [
         "dashboard.view",
         "events.view",
