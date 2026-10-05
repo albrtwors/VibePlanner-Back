@@ -34,6 +34,7 @@ PERMISSION_CATALOG = [
     ("files.create", "Crear cancioneros", "Repertorio", "Armar nuevos cancioneros"),
     ("files.edit", "Editar cancioneros", "Repertorio", "Modificar el orden y el contenido de un cancionero"),
     ("files.delete", "Eliminar cancioneros", "Repertorio", "Borrar cancioneros"),
+    ("files.export", "Exportar cancioneros", "Repertorio", "Descargar el cancionero compilado en PDF"),
 
     # --- Eventos ---
     ("events.view", "Ver eventos", "Eventos", "Consultar eventos, itinerarios y asistentes"),
@@ -117,6 +118,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "files.view",
         "files.create",
         "files.edit",
+        "files.export",
         "events.view",
         "ai.use",
     ],
@@ -128,6 +130,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "songs.edit",
         "songs.suggest",
         "files.view",
+        "files.export",
         "events.view",
         "ai.use",
     ],
