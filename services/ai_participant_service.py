@@ -16,7 +16,10 @@ class CollabItemSchema(BaseModel):
 
 class GroupMemberSchema(BaseModel):
     name: str = Field(description="Nombre completo del integrante.")
-    email: str = Field(default="", description="Email opcional del integrante.")
+    email: str = Field(default="", description="Email opcional del integrante (retrocompatibilidad).")
+    contactType: str = Field(default="email", description="Tipo de contacto: 'email', 'phone', 'none'.")
+    contactValue: str = Field(default="", description="Valor del contacto (email o número).")
+    contactPhone: str = Field(default="", description="Número de teléfono.")
     monetaryContribution: float = Field(default=0.0, description="Aporte monetario propio del integrante.")
     logisticsToBring: List[CollabItemSchema] = Field(default=[], description="Insumos propios del integrante.")
 
@@ -24,7 +27,10 @@ class GroupMemberSchema(BaseModel):
 class ParticipantBlockSchema(BaseModel):
     type: Literal['individual', 'group'] = Field(description="'individual' o 'group'.")
     displayName: str = Field(description="Nombre de la persona (individual) o del colectivo/mesa (group).")
-    contactEmail: str = Field(default="", description="Email de contacto (solo tiene sentido para 'individual').")
+    contactEmail: str = Field(default="", description="Email de contacto (retrocompatibilidad).")
+    contactType: str = Field(default="email", description="Tipo de contacto: 'email', 'phone', 'none'.")
+    contactValue: str = Field(default="", description="Valor del contacto (email o teléfono).")
+    contactPhone: str = Field(default="", description="Número de teléfono.")
     monetaryContribution: float = Field(default=0.0, description="Aporte monetario del bloque completo.")
     logisticsToBring: List[CollabItemSchema] = Field(default=[], description="Insumos generales del bloque.")
     members: List[GroupMemberSchema] = Field(default=[], description="Integrantes, solo si type='group'.")
@@ -75,7 +81,7 @@ class ParticipantService:
                 "ESTRUCTURA DE CADA BLOCK:\n"
                 "- type: 'individual' (una sola persona) o 'group' (colectivo/mesa con integrantes en 'members').\n"
                 "- displayName: nombre de la persona o del grupo.\n"
-                "- contactEmail, monetaryContribution, logisticsToBring: datos del bloque.\n"
+                "- contactEmail/contactType/contactValue/contactPhone, monetaryContribution, logisticsToBring: datos del bloque.\n"
                 "- members: solo si type='group', cada uno con name, email, monetaryContribution, logisticsToBring.\n\n"
                 "REGLAS PARA APLICAR INSTRUCCIONES:\n"
                 "1. Agregar una persona individual -> agrega un nuevo block type='individual'. Si en el mismo "
@@ -97,7 +103,8 @@ class ParticipantService:
                 "actualiza el campo monetaryContribution del block o member correspondiente al valor final que "
                 "corresponda (si te dan un monto absoluto, reemplázalo; si te piden sumar/restar una cifra, calcula "
                 "el nuevo total a partir del valor actual que ves en el contexto).\n"
-                "7. INSUMOS/ITEMS (logisticsToBring) -> si el usuario menciona que alguien o un grupo trae/lleva/"
+                "7. CONTACTO -> usa contactType: 'email'|'phone'|'none'. Si dan email, pon contactType='email', contactValue=email, contactEmail=email; si dan teléfono, contactType='phone', contactValue=número, contactPhone=número. Mantén coherente.\n"
+                "8. INSUMOS/ITEMS (logisticsToBring) -> si el usuario menciona que alguien o un grupo trae/lleva/"
                 "aporta un insumo con o sin cantidad ('Juan trae 2 parlantes', 'agrégale hielo a Mesa 3', "
                 "'la familia Pérez lleva 3 sillas y una mesa'), agrégalo a la lista logisticsToBring del block o "
                 "member correspondiente. Si ya existe un ítem con el mismo nombre (comparando sin mayúsculas/"
@@ -105,13 +112,13 @@ class ParticipantService:
                 "insumo menciona una unidad o medida (ej. '5kg de hielo', '2 cajas de agua'), inclúyela como parte "
                 "del texto de 'item' (ej. item='hielo (5kg)') ya que el formulario no tiene un campo de unidad "
                 "separado.\n"
-                "8. Cualquier block o integrante que NO esté relacionado con la instrucción se devuelve EXACTAMENTE "
+                "9. Cualquier block o integrante que NO esté relacionado con la instrucción se devuelve EXACTAMENTE "
                 "igual a como vino (no inventes ni cambies datos que no te pidieron cambiar).\n"
-                "9. Si la instrucción menciona a alguien que no existe en el contexto actual y la acción es "
+                "10. Si la instrucción menciona a alguien que no existe en el contexto actual y la acción es "
                 "'quitar', no inventes cambios: deja los blocks igual y explica en 'message' que no lo encontraste.\n"
-                "10. Responde siempre en 'message' con jerga amigable de 'varón', resumiendo qué hiciste (incluyendo "
+                "11. Responde siempre en 'message' con jerga amigable de 'varón', resumiendo qué hiciste (incluyendo "
                 "montos e insumos si fue lo que cambió).\n"
-                "11. CONSULTAS (sin modificar nada) -> si la instrucción es una pregunta o pedido de información "
+                "12. CONSULTAS (sin modificar nada) -> si la instrucción es una pregunta o pedido de información "
                 "('¿quiénes están en la Mesa 3?', 'cuánto lleva aportado el grupo Familia Pérez', 'qué insumos "
                 "trae Juan', 'cuántos individuales tengo sin grupo') NO modifiques ningún block: devuelve la "
                 "lista de blocks EXACTAMENTE igual a como vino, y responde la pregunta con los datos concretos "

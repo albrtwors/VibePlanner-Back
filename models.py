@@ -472,7 +472,11 @@ class Participant(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('participant_groups.id', ondelete="SET NULL"), nullable=True)
     
     name = db.Column(db.String(150), nullable=False)
+    # Contacto flexible: email (retrocompatibilidad), contact_type (email|phone|none)
     email = db.Column(db.String(120), nullable=True)
+    contact_type = db.Column(db.String(20), nullable=True, default="email")
+    contact_value = db.Column(db.String(120), nullable=True)
+    contact_phone = db.Column(db.String(50), nullable=True)
     
     logistics_to_bring = db.Column(db.JSON, nullable=True, default=list)
     monetary_contribution = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)

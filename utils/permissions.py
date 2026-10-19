@@ -41,6 +41,7 @@ PERMISSION_CATALOG = [
     ("events.create", "Crear eventos", "Eventos", "Agendar nuevos eventos con su hoja logística"),
     ("events.edit", "Editar eventos", "Eventos", "Modificar datos, staff, inventario y asistentes"),
     ("events.delete", "Eliminar eventos", "Eventos", "Borrar eventos"),
+    ("events.export", "Exportar evento", "Eventos", "Descargar el evento completo en PDF"),
 
     # --- Inventario ---
     ("inventory.view", "Ver inventario", "Inventario", "Consultar el catálogo de bodega"),
@@ -141,6 +142,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "events.view",
         "events.create",
         "events.edit",
+        "events.export",
         "inventory.view",
         "inventory.create",
         "inventory.edit",

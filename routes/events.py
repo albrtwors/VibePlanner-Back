@@ -201,6 +201,9 @@ def get_event_detail(event_id):
             "group_id": p.group_id,
             "name": p.name,
             "email": p.email,
+            "contact_type": p.contact_type,
+            "contact_value": p.contact_value,
+            "contact_phone": p.contact_phone,
             "logistics_to_bring": p.logistics_to_bring,
             "monetary_contribution": float(p.monetary_contribution),
             "contribution_status": p.contribution_status
@@ -304,6 +307,9 @@ def add_participants_bulk(event_id):
             group_id=target_group_id,
             name=p['name'],
             email=p.get('email'),
+            contact_type=p.get('contact_type') or ('email' if p.get('email') else ('phone' if p.get('contact_phone') or p.get('contact_value') else 'none')),
+            contact_value=p.get('contact_value') or p.get('email') or p.get('contact_phone'),
+            contact_phone=p.get('contact_phone'),
             logistics_to_bring=formatted_logistics,
             monetary_contribution=p.get('monetary_contribution', 0.00),
             contribution_status="Pendiente"
@@ -417,7 +423,10 @@ def sync_json_participants(event_id):
                         event_id=event_id,
                         group_id=nuevo_grupo.id,
                         name=m.get('name').strip(),
-                        email=m.get('email', '').strip() or None,
+                        email=(m.get('email') or '').strip() or None,
+                        contact_type=m.get('contact_type') or ('email' if (m.get('email') or m.get('contact_value')) else 'none'),
+                        contact_value=(m.get('contact_value') or m.get('email') or '').strip() or None,
+                        contact_phone=(m.get('contact_phone') or '').strip() or None,
                         logistics_to_bring=m_logistics,
                         monetary_contribution=m_money,
                         contribution_status="Pagado" if m_money > 0 else "Pendiente"
@@ -430,6 +439,9 @@ def sync_json_participants(event_id):
                     group_id=None,
                     name=display_name,
                     email=email if email else None,
+                    contact_type=block.get('contactType') or block.get('contact_type') or ('email' if email else ('phone' if (block.get('contactPhone') or block.get('contactValue') or block.get('contact_value')) else 'none')),
+                    contact_value=block.get('contactValue') or block.get('contact_value') or email or block.get('contactPhone') or block.get('contact_phone') or None,
+                    contact_phone=block.get('contactPhone') or block.get('contact_phone') or None,
                     logistics_to_bring=block_logistics,
                     monetary_contribution=money,
                     contribution_status="Pagado" if money > 0 else "Pendiente"
