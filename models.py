@@ -485,3 +485,28 @@ class Participant(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     group = db.relationship('ParticipantGroup', back_populates='participants')
+
+
+class ParticipantPayment(db.Model):
+    __tablename__ = 'participant_payments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    participant_id = db.Column(db.Integer, db.ForeignKey('participants.id', ondelete='CASCADE'), nullable=False, index=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    status = db.Column(db.String(20), nullable=False, default='pending')  # pending | submitted | approved | rejected
+
+    screenshot_url = db.Column(db.String(500), nullable=True)
+    screenshot_path = db.Column(db.String(255), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+    requested_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_at = db.Column(db.DateTime, nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    participant = db.relationship('Participant', backref=db.backref('payment_submissions', cascade='all, delete-orphan'))
+    event = db.relationship('Event', backref=db.backref('participant_payments', cascade='all, delete-orphan'))
+    reviewed_by = db.relationship('User', foreign_keys=[reviewed_by_id])

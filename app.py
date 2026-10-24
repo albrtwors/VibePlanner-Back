@@ -3,7 +3,7 @@ from flask import Flask, jsonify
 from database import db
 import models 
 from flask_cors import CORS
-from routes import genres, songs, authors, files, inventory, events, chatbot, auth, roles, users
+from routes import genres, songs, authors, files, inventory, events, chatbot, auth, roles, users, payments
 from models import TokenBlocklist
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
@@ -97,6 +97,7 @@ app.register_blueprint(files.files_bp)
 app.register_blueprint(genres.genres_bp)
 app.register_blueprint(authors.authors_bp)
 app.register_blueprint(events.event_bp)
+app.register_blueprint(payments.payments_bp)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):

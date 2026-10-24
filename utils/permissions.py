@@ -42,6 +42,7 @@ PERMISSION_CATALOG = [
     ("events.edit", "Editar eventos", "Eventos", "Modificar datos, staff, inventario y asistentes"),
     ("events.delete", "Eliminar eventos", "Eventos", "Borrar eventos"),
     ("events.export", "Exportar evento", "Eventos", "Descargar el evento completo en PDF"),
+    ("events.payments", "Gestionar pagos de participantes", "Eventos", "Enviar y validar pagos móviles de participantes"),
 
     # --- Inventario ---
     ("inventory.view", "Ver inventario", "Inventario", "Consultar el catálogo de bodega"),
@@ -143,6 +144,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "events.create",
         "events.edit",
         "events.export",
+        "events.payments",
         "inventory.view",
         "inventory.create",
         "inventory.edit",
