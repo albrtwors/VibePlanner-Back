@@ -498,6 +498,10 @@ class ParticipantPayment(db.Model):
     amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     status = db.Column(db.String(20), nullable=False, default='pending')  # pending | submitted | approved | rejected
 
+    # Referencia de pago móvil (nro de operación/voucher) que envía el cliente.
+    # Es opcional: si no viene captura, el cliente puede acreditar el pago así.
+    payment_reference = db.Column(db.String(100), nullable=True)
+
     screenshot_url = db.Column(db.String(500), nullable=True)
     screenshot_path = db.Column(db.String(255), nullable=True)
     notes = db.Column(db.Text, nullable=True)

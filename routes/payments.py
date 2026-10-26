@@ -35,6 +35,7 @@ def send_payment_requests(event_id):
     participants = query.all()
 
     sent = 0
+    created_pays = []
     for p in participants:
         if not p.email:
             continue
@@ -51,6 +52,7 @@ def send_payment_requests(event_id):
             requested_at=datetime.utcnow()
         )
         db.session.add(pay)
+        created_pays.append(pay)
         sent += 1
 
     try:
@@ -60,35 +62,23 @@ def send_payment_requests(event_id):
         return jsonify({'error': str(e)}), 500
 
     base_url = os.getenv('APP_BASE_URL', 'http://localhost:3000')
-    # Enviar emails si hay servicio configurado
-    try:
-        from services.email_service import EmailNotifierService
-        mailer = EmailNotifierService()
-        if mailer.is_configured:
-            for p in participants:
-                pay = ParticipantPayment.query.filter_by(participant_id=p.id, event_id=event_id).order_by(ParticipantPayment.id.desc()).first()
-                if not pay or not p.email:
-                    continue
-                link = f"{base_url}/pay/{pay.token}"
-                html = f"""
-                <html><body style="font-family:sans-serif;background:#0f172a;color:#e2e8f0;padding:20px">
-                <div style="max-width:560px;margin:auto;background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px">
-                <h1 style="color:#fff">VibePlanner - Pago de aporte</h1>
-                <p>Hola {p.name},</p>
-                <p>Para el evento <strong>{event.name}</strong> ({event.date}) se te solicita el aporte móvil por <strong>${pay.amount}</strong>.</p>
-                <p>Subí la captura de pantalla de tu pago desde el siguiente enlace:</p>
-                <p><a href="{link}" style="background:#6366f1;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none">Enviar comprobante de pago</a></p>
-                <p style="font-size:12px;color:#94a3b8">Si ya pagaste, podés subir el comprobante ahora para que sea revisado.</p>
-                </div></body></html>
-                """
-                try:
-                    import yagmail
-                    yag = yagmail.SMTP(mailer.user, mailer.password)
-                    yag.send(to=p.email, subject=f"VibePlanner | Comprobante de pago - {event.name}", contents=html)
-                except Exception:
-                    pass
-    except Exception:
-        pass
+    # Enviar el email de solicitud de aporte movil si hay servicio de correo configurado
+    from services.email_service import EmailNotifierService
+    mailer = EmailNotifierService()
+    for pay in created_pays:
+        p = pay.participant
+        ev = pay.event
+        if not p or not p.email:
+            continue
+        link = f"{base_url}/pay/{pay.token}"
+        mailer.send_payment_request(
+            recipient=p.email,
+            participant_name=p.name or 'participante',
+            event_name=ev.name if ev else 'el evento',
+            amount=pay.amount or 0,
+            payment_url=link,
+            username=p.name,
+        )
 
     return jsonify({'message': f'Solicitudes generadas', 'sent': sent}), 200
 
@@ -108,6 +98,7 @@ def list_payments(event_id):
             'participant_email': p.email if p else None,
             'amount': float(pay.amount or 0),
             'status': pay.status,
+            'payment_reference': pay.payment_reference,
             'screenshot_url': pay.screenshot_url,
             'requested_at': pay.requested_at.isoformat() if pay.requested_at else None,
             'uploaded_at': pay.uploaded_at.isoformat() if pay.uploaded_at else None,
@@ -157,6 +148,7 @@ def get_public_payment(token):
         'amount': float(pay.amount or 0),
         'participant_name': p.name if p else None,
         'participant_email': p.email if p else None,
+        'payment_reference': pay.payment_reference,
         'event': {'id': ev.id if ev else None, 'name': ev.name if ev else None, 'date': ev.date.isoformat() if ev and ev.date else None, 'time': ev.time.strftime('%H:%M') if ev and ev.time else None} if ev else None,
         'screenshot_url': pay.screenshot_url
     }), 200
@@ -167,46 +159,67 @@ def upload_public_payment(token):
     pay = ParticipantPayment.query.filter_by(token=token).first()
     if not pay:
         return jsonify({'error': 'Enlace inválido o expirado'}), 404
-    if 'file' not in request.files:
-        return jsonify({'error': 'Falta el archivo'}), 400
-    f = request.files['file']
-    if f.filename == '':
-        return jsonify({'error': 'Archivo vacío'}), 400
-    if not allowed_file(f.filename):
-        return jsonify({'error': 'Formato no permitido'}), 400
 
-    supabase_url = os.getenv('SUPABASE_URL')
-    supabase_key = os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_KEY')
-    bucket = os.getenv('SUPABASE_BUCKET', 'payment-proofs')
+    # Flujo 1: subir captura de pantalla (totalmente opcional)
+    file = request.files.get('file')
+    if file and file.filename:
+        f = file
+        if not allowed_file(f.filename):
+            return jsonify({'error': 'Formato no permitido'}), 400
 
-    filename = f"{uuid.uuid4().hex}_{secure_filename(f.filename)}"
-    file_bytes = f.read()
-    content_type = f.content_type or 'application/octet-stream'
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_KEY')
+        bucket = os.getenv('SUPABASE_BUCKET', 'payment-proofs')
 
-    public_url = None
-    if supabase_url and supabase_key:
+        filename = f"{uuid.uuid4().hex}_{secure_filename(f.filename)}"
+        file_bytes = f.read()
+        content_type = f.content_type or 'application/octet-stream'
+
+        public_url = None
+        if supabase_url and supabase_key:
+            try:
+                upload_url = f"{supabase_url.rstrip('/')}/storage/v1/object/{bucket}/{filename}"
+                headers = {'Authorization': f'Bearer {supabase_key}', 'Content-Type': content_type}
+                resp = requests.post(upload_url, headers=headers, data=file_bytes)
+                if resp.ok:
+                    public_url = f"{supabase_url.rstrip('/')}/storage/v1/object/public/{bucket}/{filename}"
+            except Exception:
+                public_url = None
+
+        if not public_url:
+            # Fallback local
+            upload_dir = os.path.join(current_app.root_path, 'uploads', 'payments')
+            os.makedirs(upload_dir, exist_ok=True)
+            path = os.path.join(upload_dir, filename)
+            with open(path, 'wb') as out:
+                out.write(file_bytes)
+            pay.screenshot_path = path
+            pay.screenshot_url = f"/uploads/payments/{filename}"
+        else:
+            pay.screenshot_url = public_url
+            pay.screenshot_path = filename
+
+        pay.status = 'submitted'
+        pay.uploaded_at = datetime.utcnow()
         try:
-            upload_url = f"{supabase_url.rstrip('/')}/storage/v1/object/{bucket}/{filename}"
-            headers = {'Authorization': f'Bearer {supabase_key}', 'Content-Type': content_type}
-            resp = requests.post(upload_url, headers=headers, data=file_bytes)
-            if resp.ok:
-                public_url = f"{supabase_url.rstrip('/')}/storage/v1/object/public/{bucket}/{filename}"
-        except Exception:
-            public_url = None
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+        return jsonify({'message': 'Comprobante enviado correctamente', 'status': pay.status}), 200
 
-    if not public_url:
-        # Fallback local
-        upload_dir = os.path.join(current_app.root_path, 'uploads', 'payments')
-        os.makedirs(upload_dir, exist_ok=True)
-        path = os.path.join(upload_dir, filename)
-        with open(path, 'wb') as out:
-            out.write(file_bytes)
-        pay.screenshot_path = path
-        pay.screenshot_url = f"/uploads/payments/{filename}"
-    else:
-        pay.screenshot_url = public_url
-        pay.screenshot_path = filename
+    # Flujo 2: acreditacion manual con referencia de pago movil + monto
+    data = request.get_json(silent=True) or request.form.to_dict()
+    reference = str(data.get('payment_reference') or data.get('reference') or '').strip()
+    if not reference:
+        return jsonify({'error': 'Falta el archivo o la referencia de pago'}), 400
+    try:
+        amount = float(data.get('amount')) if data.get('amount') is not None and str(data.get('amount')).strip() != '' else float(pay.amount or 0)
+    except (ValueError, TypeError):
+        amount = float(pay.amount or 0)
 
+    pay.payment_reference = reference
+    pay.amount = amount
     pay.status = 'submitted'
     pay.uploaded_at = datetime.utcnow()
     try:
@@ -214,5 +227,4 @@ def upload_public_payment(token):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
-    return jsonify({'message': 'Comprobante enviado correctamente', 'status': pay.status}), 200
-from .payments import payments_bp
+    return jsonify({'message': 'Referencia de pago registrada', 'status': pay.status, 'payment_reference': pay.payment_reference}), 200

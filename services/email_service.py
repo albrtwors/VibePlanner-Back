@@ -184,3 +184,44 @@ class EmailNotifierService:
             contents=html_content
         )
         return True
+
+    def send_payment_request(self, recipient: str, participant_name: str, event_name: str, amount, payment_url: str, username: str = "") -> bool:
+        """
+        Envía el email de solicitud de aporte movil a un participante.
+        El participante recibe un enlace /pay/<token> para subir el comprobante
+        (o acreditar la referencia de pago movil). Si no hay credenciales de Gmail
+        configuradas devuelve False y queda en modo desarrollo.
+        """
+        if not self.is_configured:
+            print(f"[MAIL-DEV] Sin credenciales de Gmail. No se pudo enviar el pago a {recipient}.")
+            return False
+
+        saludo = f"Hola {username}," if username else "Hola,"
+        html_content = f"""
+        <html>
+            <body style="font-family: sans-serif; background-color: #0f172a; color: #e2e8f0; padding: 20px; margin: 0;">
+                <div style="max-width: 650px; margin: 0 auto; background-color: #1e293b; border: 1px solid #334155; padding: 30px; border-radius: 16px;">
+                    <div style="border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 20px;">
+                        <span style="font-size: 10px; font-weight: bold; color: #6366f1; text-transform: uppercase; letter-spacing: 0.1em;">VibePlanner</span>
+                        <h1 style="font-size: 24px; font-weight: 900; color: #ffffff; margin: 5px 0 0 0; text-transform: uppercase;">Aporte para el Evento</h1>
+                    </div>
+                    <p style="font-size: 14px; color: #cbd5e1; margin: 0 0 10px 0;">{saludo}</p>
+                    <p style="font-size: 14px; color: #94a3b8; margin: 0 0 10px 0; line-height: 1.6;">
+                        Le solicitamos el aporte movil para el evento <strong style="color: #f8fafc;">{event_name}</strong>.
+                    </p>
+                    <p style="font-size: 18px; font-weight: bold; color: #34d399; margin: 0 0 20px 0;">Monto: ${amount}</p>
+                    <p style="font-size: 14px; color: #94a3b8; margin: 0 0 25px 0; line-height: 1.6;">
+                        Si ya realizo el pago movil, puede subir el comprobante desde el siguiente enlace:
+                    </p>
+                    <p style="text-align: center; margin: 0 0 25px 0;">
+                        <a href="{payment_url}" style="background-color: #6366f1; color: #ffffff; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: bold;">Enviar comprobante de pago</a>
+                    </p>
+                    <p style="font-size: 12px; color: #64748b; margin: 0;">Este es un mensaje automatizado de VibePlanner.</p>
+                </div>
+            </body>
+        </html>
+        """
+        asunto = f"\U0001f4b0 VibePlanner | Aporte para {event_name}"
+        yag = yagmail.SMTP(self.user, self.password)
+        yag.send(to=recipient, subject=asunto, contents=html_content)
+        return True

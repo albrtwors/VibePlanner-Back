@@ -274,6 +274,246 @@ EVENTS = [
              "contribution_status": "Pendiente"},
         ],
     },
+    {
+        "name": "Noche de Jazz Acustico",
+        "days_from_today": 12,
+        "time": "20:00",
+        "target_audience": "Amantes del jazz",
+        "guests_count": 60,
+        "estimated_logistic_budget": 5400.00,
+        "itinerary": [
+            {"time": "20:00", "type": "generic", "name": "Acreditacion y control de acceso"},
+            {"time": "20:30", "type": "song", "name": "La víctima", "song_id": 5},
+        ],
+        "staff": [
+            {"email": "admin@vibeplanner.com", "role": "Coordinador General"},
+            {"email": "musico@vibeplanner.com", "role": "Musico"},
+        ],
+        "inventory": [
+            ("Micrófonos Inalámbricos", 2),
+        ],
+        "groups": [],
+        "solo_participants": [
+            {"name": "Cuarteto de Vientos", "email": "cuarteto@jazz.com", "monetary_contribution": 900.00,
+             "contribution_status": "Pendiente"},
+        ],
+    },
+    {
+        "name": "Festival Reggaetón Urbana",
+        "days_from_today": 18,
+        "time": "22:00",
+        "target_audience": "Jóvenes 18-30",
+        "guests_count": 500,
+        "estimated_logistic_budget": 15800.00,
+        "itinerary": [
+            {"time": "22:00", "type": "generic", "name": "Acreditación y control de acceso"},
+            {"time": "23:00", "type": "song", "name": "Tití Me Preguntó", "song_id": 8},
+            {"time": "01:00", "type": "song", "name": "Around the World", "song_id": 3},
+        ],
+        "staff": [
+            {"email": "logistica@vibeplanner.com", "role": "Coordinador General"},
+            {"email": "musico@vibeplanner.com", "role": "Sonido en Vivo"},
+        ],
+        "inventory": [
+            ("Parlantes 1000W", 2),
+            ("Agua Mineral 500ml", 60),
+        ],
+        "groups": [
+            {
+                "name": "Crew Urbana",
+                "monetary_contribution": 1500.00,
+                "contribution_status": "Pagado",
+                "logistics_to_bring": [
+                    {"id": "log-e1", "item": "Extintor", "quantity": 1, "entregado": True},
+                ],
+                "members": [
+                    {"name": "Río Torres", "email": "rio.torres@correo.com", "monetary_contribution": 1500.00},
+                ],
+            },
+        ],
+        "solo_participants": [],
+    },
+    {
+        "name": "Noche de Salsa y Boleros",
+        "days_from_today": 32,
+        "time": "21:00",
+        "target_audience": "Fiesteros",
+        "guests_count": 400,
+        "estimated_logistic_budget": 7200.00,
+        "itinerary": [
+            {"time": "21:00", "type": "generic", "name": "Recepción de invitados"},
+            {"time": "22:00", "type": "song", "name": "Desde el alma", "song_id": 9},
+            {"time": "00:30", "type": "song", "name": "Cuando seas mía", "song_id": 7},
+            {"time": "02:30", "type": "song", "name": "La víctima", "song_id": 5},
+        ],
+        "staff": [
+            {"email": "admin@vibeplanner.com", "role": "Coordinador General"},
+            {"email": "logistica@vibeplanner.com", "role": "Coordinador General"},
+        ],
+        "inventory": [
+            ("Micrófonos Inalámbricos", 2),
+            ("Papas Fritas", 20),
+        ],
+        "groups": [
+            {
+                "name": "Bailando Salsa",
+                "monetary_contribution": 800.00,
+                "contribution_status": "Pendiente",
+                "logistics_to_bring": [],
+                "members": [
+                    {"name": "Marta Ríos", "email": "marta.rios@correo.com", "monetary_contribution": 800.00},
+                ],
+            },
+        ],
+        "solo_participants": [],
+    },
+    {
+        "name": "Gala de Folclore Eterno",
+        "days_from_today": 48,
+        "time": "19:00",
+        "target_audience": "Familias",
+        "guests_count": 300,
+        "estimated_logistic_budget": 6100.00,
+        "itinerary": [
+            {"time": "19:00", "type": "generic", "name": "Show familiar"},
+            {"time": "20:00", "type": "song", "name": "Antiguos dueños", "song_id": 10},
+            {"time": "21:30", "type": "song", "name": "Persiana Americana", "song_id": 4},
+        ],
+        "staff": [
+            {"email": "logistica@vibeplanner.com", "role": "Coordinador General"},
+            {"email": "musico@vibeplanner.com", "role": "Sonido en Vivo"},
+        ],
+        "inventory": [
+            ("Mesa de Sombrilla", 4),
+            ("Paño / Manteles", 10),
+        ],
+        "groups": [
+            {
+                "name": "La Ronda",
+                "monetary_contribution": 500.00,
+                "contribution_status": "Pendiente",
+                "logistics_to_bring": [
+                    {"id": "log-f1", "item": "Pilas AA", "quantity": 20, "entregado": False},
+                ],
+                "members": [
+                    {"name": "Elena Quiñones", "email": "elena.quinones@correo.com", "monetary_contribution": 500.00},
+                ],
+            },
+        ],
+        "solo_participants": [],
+    },
+    {
+        "name": "Noche de Pop en Vivo",
+        "days_from_today": 65,
+        "time": "21:30",
+        "target_audience": "Curadores musicales",
+        "guests_count": 350,
+        "estimated_logistic_budget": 8900.00,
+        "itinerary": [
+            {"time": "21:30", "type": "generic", "name": "Show pop en vivo"},
+            {"time": "22:30", "type": "song", "name": "Dancing Queen", "song_id": 1},
+            {"time": "00:00", "type": "song", "name": "Rosas", "song_id": 6},
+            {"time": "01:00", "type": "song", "name": "Let It Be", "song_id": 2},
+        ],
+        "staff": [
+            {"email": "admin@vibeplanner.com", "role": "Coordinador General"},
+            {"email": "logistica@vibeplanner.com", "role": "Coordinador General"},
+        ],
+        "inventory": [
+            ("Micrófonos Inalámbricos", 2),
+            ("Helado Artesanal", 10),
+        ],
+        "groups": [
+            {
+                "name": "Fans del Pop",
+                "monetary_contribution": 1200.00,
+                "contribution_status": "Pagado",
+                "logistics_to_bring": [],
+                "members": [
+                    {"name": "Paula Benítez", "email": "paula.benitez@correo.com", "monetary_contribution": 1200.00},
+                ],
+            },
+        ],
+        "solo_participants": [],
+    },
+    {
+        "name": "Concierto Electrónico Pulsar",
+        "days_from_today": 80,
+        "time": "23:00",
+        "target_audience": "Fiesteros nocturnos",
+        "guests_count": 800,
+        "estimated_logistic_budget": 13200.00,
+        "itinerary": [
+            {"time": "23:00", "type": "generic", "name": "Acreditación Pulsar"},
+            {"time": "00:00", "type": "song", "name": "Around the World", "song_id": 3},
+            {"time": "01:30", "type": "song", "name": "Tití Me Preguntó", "song_id": 8},
+        ],
+        "staff": [
+            {"email": "musico@vibeplanner.com", "role": "Sonido en Vivo"},
+            {"email": "admin@vibeplanner.com", "role": "Coordinador General"},
+        ],
+        "inventory": [
+            ("Parlantes 1000W", 2),
+            ("Agua Mineral 500ml", 40),
+        ],
+        "groups": [
+            {
+                "name": "Pulsar Crew",
+                "monetary_contribution": 2000.00,
+                "contribution_status": "Pagado",
+                "logistics_to_bring": [],
+                "members": [
+                    {"name": "Nicolás Paz", "email": "nicolas.paz@correo.com", "monetary_contribution": 2000.00},
+                ],
+            },
+        ],
+        "solo_participants": [],
+    },
+    {
+        "name": "Noche de Balada Acústica",
+        "days_from_today": 95,
+        "time": "20:30",
+        "target_audience": "Parejas",
+        "guests_count": 200,
+        "estimated_logistic_budget": 4800.00,
+        "itinerary": [
+            {"time": "20:30", "type": "generic", "name": "Velada de baladas"},
+            {"time": "21:30", "type": "song", "name": "Desde el alma", "song_id": 9},
+            {"time": "23:30", "type": "song", "name": "La víctima", "song_id": 5},
+        ],
+        "staff": [
+            {"email": "admin@vibeplanner.com", "role": "Coordinador General"},
+        ],
+        "inventory": [
+            ("Micrófonos Inalámbricos", 1),
+            ("Mesa de Sombrilla", 2),
+        ],
+        "groups": [],
+        "solo_participants": [],
+    },
+    {
+        "name": "Gala de Baile Latino 2026",
+        "days_from_today": 110,
+        "time": "22:00",
+        "target_audience": "Todos",
+        "guests_count": 450,
+        "estimated_logistic_budget": 12400.00,
+        "itinerary": [
+            {"time": "22:00", "type": "generic", "name": "Gala de baile latino"},
+            {"time": "23:00", "type": "song", "name": "Cuando seas mía", "song_id": 7},
+            {"time": "01:00", "type": "song", "name": "Desde el alma", "song_id": 9},
+        ],
+        "staff": [
+            {"email": "logistica@vibeplanner.com", "role": "Coordinador General"},
+            {"email": "musico@vibeplanner.com", "role": "Sonido en Vivo"},
+        ],
+        "inventory": [
+            ("Micrófonos Inalámbricos", 2),
+            ("Vino Tinto Malbec", 12),
+        ],
+        "groups": [],
+        "solo_participants": [],
+    },
 ]
 
 # ==========================================
@@ -294,6 +534,41 @@ FILES = [
         "name": "Reggaetón Nocturno",
         "tematica": "Hits urbanos para el cierre",
         "songs": ["Tití Me Preguntó", "Around the World"],
+    },
+    {
+        "name": "Setlist Salsa Clásica 2026",
+        "tematica": "Salsa y boleros para bailar toda la noche",
+        "songs": ["Cuando seas mía", "La víctima", "Desde el alma"],
+    },
+    {
+        "name": "Setlist Pop Nostálgico",
+        "tematica": "Pop de los 70 y 80 para cerrar con broche de oro",
+        "songs": ["Dancing Queen", "Let It Be", "Rosas"],
+    },
+    {
+        "name": "Setlist Rock Alternativo",
+        "tematica": "Rock clásico y moderno con actitud",
+        "songs": ["Persiana Americana", "Around the World", "Antiguos dueños"],
+    },
+    {
+        "name": "Setlist Electrónica Urbana",
+        "tematica": "Electrónica para festejar hasta el amanecer",
+        "songs": ["Tití Me Preguntó", "Around the World", "Dancing Queen"],
+    },
+    {
+        "name": "Setlist Folclore Tradicional",
+        "tematica": "Folclore y raíces para el show rural",
+        "songs": ["Antiguos dueños", "Persiana Americana"],
+    },
+    {
+        "name": "Setlist Balada Romántica",
+        "tematica": "Baladas y boleros para el amor",
+        "songs": ["La víctima", "Desde el alma", "Rosas"],
+    },
+    {
+        "name": "Setlist Reggaetón Clásico",
+        "tematica": "Reggaetón de los 2000 para la noche",
+        "songs": ["Tití Me Preguntó", "Cuando seas mía"],
     },
 ]
 
