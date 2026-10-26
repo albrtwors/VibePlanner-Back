@@ -154,7 +154,14 @@ def get_events():
             "guests_count": e.guests_count,
             "estimated_logistic_budget": float(e.estimated_logistic_budget or 0),
             "itinerary": e.itinerary,
-            "staff": [{"email": s.email, "role": s.role} for s in e.staff]
+            "staff": [{"email": s.email, "role": s.role} for s in e.staff],
+            "inventory": [{
+                "item_id": inv.item_id,
+                "name": inv.item.name,
+                "quantity_used": float(inv.quantity_used),
+                "unit": inv.item.unit_of_measure,
+                "category": inv.item.category
+            } for inv in e.inventory_assignments]
         })
     return jsonify(payload), 200
 
